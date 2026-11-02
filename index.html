@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClipCut – वीडियो डाउनलोड और कट</title>
+<meta name="theme-color" content="#f6f7f9">
+<title>ClipCut – Video Downloader &amp; Trimmer</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--text:#14171c;--muted:#5d6672;--line:#d9dde3;--accent:#0b5fff;--accent-t:#fff;--err:#c62828}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1216;--card:#181c22;--text:#eef1f5;--muted:#9aa4b2;--line:#2b323b;--accent:#5b92ff;--accent-t:#06101f;--err:#ff6b6b}}
@@ -28,43 +29,44 @@ button:disabled{opacity:.6;cursor:wait}
 #msg{min-height:1.4em;margin-top:10px;font-size:.95rem}
 #msg.err{color:var(--err)}
 .hide{display:none}
+@media(max-width:380px){body{padding:14px}.card{padding:15px}.row{gap:8px}}
 </style>
 </head>
 <body>
 <main>
   <h1>ClipCut</h1>
-  <p class="sub">अपने वीडियो का लिंक पेस्ट करें। पूरा या बीच का हिस्सा डाउनलोड करें।</p>
+  <p class="sub">Paste a video link. Download the full video or just the section you need.</p>
 
   <div class="card">
     <div class="field">
-      <label for="url">वीडियो लिंक</label>
-      <input id="url" type="url" inputmode="url" placeholder="https://youtu.be/...">
+      <label for="url">Video URL</label>
+      <input id="url" type="url" inputmode="url" placeholder="https://youtu.be/..." autocomplete="url">
     </div>
-    <button class="ghost" id="check" type="button" style="margin-top:0">वीडियो देखें</button>
+    <button class="ghost" id="check" type="button" style="margin-top:0">Preview Video</button>
   </div>
 
   <div class="card hide" id="info">
-    <div class="meta"><img id="thumb" alt=""><div><b id="title"></b><span id="dur"></span></div></div>
+    <div class="meta"><img id="thumb" alt="Video thumbnail"><div><b id="title"></b><span id="dur"></span></div></div>
   </div>
 
   <div class="card">
     <div class="row">
-      <div class="field"><label for="start">शुरू (से)</label><input id="start" placeholder="5:00"></div>
-      <div class="field"><label for="end">अंत (तक)</label><input id="end" placeholder="6:00"></div>
+      <div class="field"><label for="start">Start Time</label><input id="start" inputmode="decimal" placeholder="5:00"></div>
+      <div class="field"><label for="end">End Time</label><input id="end" inputmode="decimal" placeholder="6:00"></div>
     </div>
-    <p class="hint" style="margin:-6px 0 14px">खाली छोड़ेंगे तो पूरा वीडियो डाउनलोड होगा। फ़ॉर्मेट: मिनट:सेकंड (जैसे 5:00) या घंटा:मिनट:सेकंड।</p>
+    <p class="hint" style="margin:-6px 0 14px">Leave both fields empty to download the full video. Format: minutes:seconds (e.g. 5:00) or hours:minutes:seconds.</p>
     <div class="field">
-      <label for="quality">क्वालिटी</label>
+      <label for="quality">Quality</label>
       <select id="quality">
-        <option value="best">सबसे अच्छी (HD / 4K जो उपलब्ध हो)</option>
+        <option value="best">Best Available (HD / 4K, if available)</option>
         <option value="1080">1080p Full HD</option>
         <option value="720">720p HD</option>
         <option value="480">480p</option>
-        <option value="audio">सिर्फ़ ऑडियो (MP3)</option>
+        <option value="audio">Audio Only (MP3)</option>
       </select>
     </div>
-    <button id="go" type="button">डाउनलोड करें</button>
-    <div id="msg" role="status"></div>
+    <button id="go" type="button">Download</button>
+    <div id="msg" role="status" aria-live="polite"></div>
   </div>
 </main>
 
@@ -76,18 +78,18 @@ const fmt = s => { s = Math.round(s); const h = Math.floor(s/3600), m = Math.flo
 
 async function post(path, body) {
   const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
-  if (!r.ok) { let e = "कुछ गड़बड़ हुई।"; try { e = (await r.json()).error || e; } catch {} throw new Error(e); }
+  if (!r.ok) { let e = "Something went wrong."; try { e = (await r.json()).error || e; } catch {} throw new Error(e); }
   return r;
 }
 
 $("check").onclick = async () => {
   const url = $("url").value.trim();
-  if (!url) return msg("पहले लिंक पेस्ट करें।", true);
-  $("check").disabled = true; msg("जानकारी ला रहे हैं…");
+  if (!url) return msg("Please paste a video link first.", true);
+  $("check").disabled = true; msg("Loading video details...");
   try {
     const d = await (await post("/api/info", {url})).json();
     $("title").textContent = d.title || "";
-    $("dur").textContent = d.duration ? "लंबाई: " + fmt(d.duration) : "";
+    $("dur").textContent = d.duration ? "Duration: " + fmt(d.duration) : "";
     if (d.thumbnail) $("thumb").src = d.thumbnail;
     $("info").classList.remove("hide"); msg("");
   } catch (e) { msg(e.message, true); }
@@ -96,8 +98,8 @@ $("check").onclick = async () => {
 
 $("go").onclick = async () => {
   const url = $("url").value.trim();
-  if (!url) return msg("पहले लिंक पेस्ट करें।", true);
-  $("go").disabled = true; msg("तैयार हो रहा है… बड़े वीडियो में कुछ मिनट लग सकते हैं।");
+  if (!url) return msg("Please paste a video link first.", true);
+  $("go").disabled = true; msg("Preparing your download... Large videos may take a few minutes.");
   try {
     const r = await post("/api/download", {url, start:$("start").value, end:$("end").value, quality:$("quality").value});
     const cd = r.headers.get("Content-Disposition") || "";
@@ -105,7 +107,7 @@ $("go").onclick = async () => {
     const name = m ? decodeURIComponent(m[1]) : "video.mp4";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(await r.blob()); a.download = name; a.click();
-    URL.revokeObjectURL(a.href); msg("डाउनलोड हो गया।");
+    URL.revokeObjectURL(a.href); msg("Download complete.");
   } catch (e) { msg(e.message, true); }
   $("go").disabled = false;
 };
