@@ -22,8 +22,8 @@ const cleanUrl = (u) => (/^https?:\/\//i.test((u || "").trim()) ? u.trim() : nul
 
 app.post("/api/info", (req, res) => {
   const url = cleanUrl(req.body.url);
-  if (!url) return res.status(400).json({ error: "सही लिंक पेस्ट करें।" });
-  execFile("yt-dlp", ["--no-playlist", "-J", "--", url], { maxBuffer: 50 * 1024 * 1024 }, (err, out, stderr) => {
+  if (!url) return res.status(400).json({ error: "Please enter a valid video URL." });
+  execFile("yt-dlp", ["--js-runtimes", "node", "--no-playlist", "-J", "--", url], { maxBuffer: 50 * 1024 * 1024 }, (err, out, stderr) => {
     if (err) return res.status(400).json({ error: (stderr || err.message).slice(-300) });
     const d = JSON.parse(out);
     res.json({ title: d.title, duration: d.duration, thumbnail: d.thumbnail });
@@ -33,16 +33,17 @@ app.post("/api/info", (req, res) => {
 app.post("/api/download", (req, res) => {
   const { start = "", end = "", quality = "best" } = req.body;
   const url = cleanUrl(req.body.url);
-  if (!url) return res.status(400).json({ error: "सही लिंक पेस्ट करें।" });
+  if (!url) return res.status(400).json({ error: "Please enter a valid video URL." });
   const s = start.trim(), e = end.trim();
   if ((s && !TIME_RE.test(s)) || (e && !TIME_RE.test(e)))
-    return res.status(400).json({ error: "समय का फ़ॉर्मेट गलत है। जैसे 5:00 लिखें।" });
+    return res.status(400).json({ error: "Invalid time format. For example, enter 5:00." });
   if (s && e && toSec(e) <= toSec(s))
-    return res.status(400).json({ error: "अंत का समय शुरू से बड़ा होना चाहिए।" });
+    return res.status(400).json({ error: "The end time must be later than the start time." });
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "clipcut_"));
   const cleanup = () => fs.rm(tmp, { recursive: true, force: true }, () => {});
   const args = [
+    "--js-runtimes", "node",
     "--no-playlist", "-f", QUALITY[quality] || QUALITY.best,
     "-o", path.join(tmp, "%(title).80B.%(ext)s"),
     "--merge-output-format", "mp4",
@@ -55,11 +56,11 @@ app.post("/api/download", (req, res) => {
     const files = fs.readdirSync(tmp);
     if (err || !files.length) {
       cleanup();
-      return res.status(400).json({ error: (stderr || "डाउनलोड नहीं हुआ।").slice(-300) });
+      return res.status(400).json({ error: (stderr || "Download failed.").slice(-300) });
     }
     res.download(path.join(tmp, files[0]), files[0], cleanup);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("ClipCut चालू: http://localhost:" + PORT));
+app.listen(PORT, () => console.log("ClipCut is running at http://localhost:" + PORT));
